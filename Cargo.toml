@@ -7,3 +7,6 @@ edition = "2021"
 
 [dependencies]
 html = "0.5.2"
+
+[dependencies.md]
+path = "md"

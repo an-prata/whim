@@ -18,8 +18,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05eabf4b1d6f9cf57ee8ddaab1a3065ae8394c5cb08d80f9b49d9ebe9307b56d"
 
 [[package]]
+name = "md"
+version = "0.1.0"
+
+[[package]]
 name = "whim"
 version = "0.1.0"
 dependencies = [
  "html",
+ "md",
 ]
