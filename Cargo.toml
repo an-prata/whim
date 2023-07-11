@@ -6,7 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-html = "0.5.2"
-
-[dependencies.md]
-path = "md"
+build_html = "2.4.0"
+pulldown-cmark = "0.9.3"
