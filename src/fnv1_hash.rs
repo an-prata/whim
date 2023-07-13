@@ -4,7 +4,7 @@
 
 //! The FNV-1 hashing algorithm is a non-cryptographic hash function chosen here
 //! for its ease of implementation. Based off the contents of this
-//! [Wikipidia article](https://en.wikipedia.org/wiki/Fowler%E2%80%93Noll%E2%80%93Vo_hash_function)
+//! [Wikipidia article](https://en.wikipedia.org/wiki/Fowler-Noll-Vo_hash_function)
 
 const FNV_OFFSET_BASIS: u64 = 14695981039346656037;
 const FNV_PRIME: u64 = 1099511628211;
