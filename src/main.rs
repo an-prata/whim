@@ -2,6 +2,8 @@
 // Licensed under the MIT License.
 // See LICENSE file in repository root for full text.
 
+mod fnv1_hash;
+mod library;
 mod md_content;
 
 use build_html as html;

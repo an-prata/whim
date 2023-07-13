@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See LICENSE file in repository root for full text.
 
+use crate::fnv1_hash::Hashable;
 use build_html as html;
 use pulldown_cmark as md;
 
@@ -65,5 +66,17 @@ impl html::Html for MdContent {
         let mut html_string = String::new();
         md::html::push_html(&mut html_string, parser);
         html_string
+    }
+}
+
+impl Hashable for MdContent {
+    fn hash(self) -> u64 {
+        self.md_string.bytes().hash()
+    }
+}
+
+impl Hashable for &MdContent {
+    fn hash(self) -> u64 {
+        self.md_string.bytes().hash()
     }
 }
