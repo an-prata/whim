@@ -5,22 +5,32 @@
 mod fnv1_hash;
 mod library;
 mod md_content;
+mod prompt;
 
 use build_html as html;
 use html::{Html, HtmlContainer};
+use library::Library;
+use std::{env, io};
 
-fn main() {
-    let md = "# Some Title\nthis is a bunch of markdown\n - one\n - two\n - three\n".to_string();
-    let page_content = md_content::MdContent::new(md);
-    let page_title = page_content.title().unwrap_or_default();
+fn main() -> io::Result<()> {
+    let dir = env::current_dir()?;
+    let lib = match Library::open(".whim.toml") {
+        Ok(l) => l,
+        Err(_) => Library::new(),
+    };
 
-    let content = html::Container::new(html::ContainerType::Div)
-        .with_attributes(vec![("class", "content")])
-        .with_html(page_content);
+    Ok(())
+    // let md = "# Some Title\nthis is a bunch of markdown\n - one\n - two\n - three\n".to_string();
+    // let page_content = md_content::MdContent::new(md);
+    // let page_title = page_content.title().unwrap_or_default();
 
-    let html_document = html::HtmlPage::new()
-        .with_title(page_title)
-        .with_container(content);
+    // let content = html::Container::new(html::ContainerType::Div)
+    //     .with_attributes(vec![("class", "content")])
+    //     .with_html(page_content);
 
-    println!("{}", html_document.to_html_string());
+    // let html_document = html::HtmlPage::new()
+    //     .with_title(page_title)
+    //     .with_container(content);
+
+    // println!("{}", html_document.to_html_string());
 }
