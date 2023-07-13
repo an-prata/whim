@@ -11,14 +11,14 @@ const FNV_PRIME: u64 = 1099511628211;
 
 pub trait Hashable {
     /// Calculates the FNV-1 hash on `self`.
-    fn hash(&self) -> u64;
+    fn fnv1_hash(&self) -> u64;
 }
 
 impl<T> Hashable for T
 where
     T: AsRef<[u8]>,
 {
-    fn hash(&self) -> u64 {
+    fn fnv1_hash(&self) -> u64 {
         hash(self)
     }
 }
@@ -52,7 +52,7 @@ mod tests {
         let a: [u8; 6] = [32, 45, 234, 58, 72, 37];
         let b: [u8; 6] = [23, 43, 127, 32, 32, 123];
 
-        assert_ne!(a.hash(), b.hash());
-        assert_eq!(a.hash(), a.clone().hash());
+        assert_ne!(a.fnv1_hash(), b.fnv1_hash());
+        assert_eq!(a.fnv1_hash(), a.clone().fnv1_hash());
     }
 }

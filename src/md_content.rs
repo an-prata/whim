@@ -70,7 +70,7 @@ impl html::Html for MdContent {
 }
 
 impl Hashable for MdContent {
-    fn hash(&self) -> u64 {
-        self.md_string.as_bytes().hash()
+    fn fnv1_hash(&self) -> u64 {
+        self.md_string.as_bytes().fnv1_hash()
     }
 }

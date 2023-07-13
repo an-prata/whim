@@ -83,7 +83,7 @@ impl Document {
         let content = MdContent::new(fs::read_to_string(path)?);
         Ok(Self {
             name: content.title().unwrap_or("".to_owned()),
-            hash: content.hash(),
+            hash: content.fnv1_hash(),
             mod_time: time::OffsetDateTime::now_local().unwrap_or(time::OffsetDateTime::now_utc()),
         })
     }
@@ -97,7 +97,7 @@ impl Document {
     #[must_use]
     pub fn update(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
         let content = MdContent::new(fs::read_to_string(path)?);
-        let new_hash = content.hash();
+        let new_hash = content.fnv1_hash();
 
         if self.hash != new_hash {
             self.name = content.title().unwrap_or("".to_owned());
