@@ -11,25 +11,22 @@ const FNV_PRIME: u64 = 1099511628211;
 
 pub trait Hashable {
     /// Calculates the FNV-1 hash on `self`.
-    fn hash(self) -> u64;
+    fn hash(&self) -> u64;
 }
 
 impl<T> Hashable for T
 where
-    T: IntoIterator<Item = u8>,
+    T: AsRef<[u8]>,
 {
-    fn hash(self) -> u64 {
+    fn hash(&self) -> u64 {
         hash(self)
     }
 }
 
 /// Performs an FNV-1 hash on the given bytes and returns the result.
 #[must_use]
-pub fn hash<T>(bytes: T) -> u64
-where
-    T: IntoIterator<Item = u8>,
-{
-    bytes.into_iter().fold(FNV_OFFSET_BASIS, |acc, i| {
+pub fn hash(bytes: impl AsRef<[u8]>) -> u64 {
+    bytes.as_ref().iter().fold(FNV_OFFSET_BASIS, |acc, &i| {
         lower_byte_xor(acc.wrapping_mul(FNV_PRIME), i)
     })
 }
