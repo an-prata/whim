@@ -4,12 +4,7 @@
 
 use crate::{fnv1_hash::Hashable, md_content::MdContent};
 use serde::{Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    fs::{self, File},
-    io::{self, Read},
-    path::Path,
-};
+use std::{collections::HashMap, fs, io, path::Path};
 use time;
 use toml;
 
@@ -39,10 +34,7 @@ impl Library {
     /// [`Library`]: Library
     #[inline]
     #[must_use]
-    pub fn open<P>(path: P) -> io::Result<Self>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
         Ok(toml::from_str(fs::read_to_string(path)?.as_str())
             .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "Could not parse TOML"))?)
     }
@@ -52,10 +44,7 @@ impl Library {
     /// [`Library`]: Library
     #[inline]
     #[must_use]
-    pub fn save<P>(&self, path: P) -> io::Result<()>
-    where
-        P: AsRef<Path>,
-    {
+    pub fn save(&self, path: impl AsRef<Path>) -> io::Result<()> {
         fs::write(
             path,
             toml::to_string(self).map_err(|_| {
@@ -63,29 +52,40 @@ impl Library {
             })?,
         )
     }
+
+    /// Opens a [`Document`] at the given path and adds it to the [`Library`].
+    ///
+    /// [`Document`]: Document
+    /// [`Library`]: Library
+    pub fn add_doc(&mut self, path: String) -> io::Result<()> {
+        let doc = Document::open(path.as_str())?;
+        self.documents.insert(path, doc);
+        Ok(())
+    }
 }
 
 /// Holds infomation about a markdown document.
-#[derive(Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 pub struct Document {
+    name: String,
     hash: u64,
     mod_time: time::OffsetDateTime,
 }
 
 impl Document {
-    /// Creates a new [`Document`] given an instance of [`MdContent`]. The hash
-    /// of the [`MdContent`] is stored and the modification time is set to the
-    /// current time.
+    /// Opens the given path and reads it for info, this will set the
+    /// modification time to the current time and as such should be avoided in
+    /// favor of using methods of [`Library`].
     ///
-    /// [`Document`]: Document
-    /// [`MdContent`]: MdContent
-    #[inline]
-    pub fn new(content: &MdContent) -> Self {
-        Self {
+    /// [`Library`]: Library
+    #[must_use]
+    pub fn open(path: impl AsRef<Path>) -> io::Result<Self> {
+        let content = MdContent::new(fs::read_to_string(path)?);
+        Ok(Self {
+            name: content.title().unwrap_or("".to_owned()),
             hash: content.hash(),
-            mod_time: time::OffsetDateTime::now_local()
-                .unwrap_or_else(|_| time::OffsetDateTime::now_utc()),
-        }
+            mod_time: time::OffsetDateTime::now_local().unwrap_or(time::OffsetDateTime::now_utc()),
+        })
     }
 
     /// Updates the given [`Document`] by comparing its stored hash with that of
@@ -94,18 +94,19 @@ impl Document {
     ///
     /// [`Document`]: Document
     /// [`MdContent`]: MdContent
-    #[inline]
     #[must_use]
-    pub fn update(self, content: MdContent) -> Self {
+    pub fn update(&mut self, path: impl AsRef<Path>) -> io::Result<()> {
+        let content = MdContent::new(fs::read_to_string(path)?);
         let new_hash = content.hash();
-        match self.hash == new_hash {
-            true => self,
-            false => Self {
-                hash: new_hash,
-                mod_time: time::OffsetDateTime::now_local()
-                    .unwrap_or_else(|_| time::OffsetDateTime::now_utc()),
-            },
+
+        if self.hash != new_hash {
+            self.name = content.title().unwrap_or("".to_owned());
+            self.hash = new_hash;
+            self.mod_time =
+                time::OffsetDateTime::now_local().unwrap_or(time::OffsetDateTime::now_utc());
         }
+
+        Ok(())
     }
 
     /// Gets the time of the last modification as made by either the struct's
