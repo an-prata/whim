@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 build_html = "2.4.0"
+glob = "0.3.1"
 pulldown-cmark = "0.9.3"
 serde = { version = "1.0.171", features = ["derive"] }
 time = { version = "0.3.23", features = ["std", "alloc", "local-offset", "serde"] }
