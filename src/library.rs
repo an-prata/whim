@@ -80,7 +80,6 @@ impl Library {
     #[inline]
     #[must_use]
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
-        dbg!(self);
         fs::write(
             path,
             ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())
@@ -199,14 +198,12 @@ impl LibraryHtml {
 
         for (href, page) in self.pages {
             let mut file_path = path.clone();
-            dbg!(href.to_owned());
             file_path.push(href);
 
             if let Some(p) = file_path.parent() {
                 fs::create_dir_all(p).map_err(|_| Error::DirectoryCreateError)?;
             }
 
-            dbg!(file_path.clone());
             fs::write(file_path, page.to_html_string()).map_err(|_| Error::FileWriteError)?;
         }
 
