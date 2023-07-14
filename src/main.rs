@@ -8,29 +8,13 @@ mod md_content;
 mod prompt;
 
 use build_html as html;
-use html::{Html, HtmlContainer};
 use library::Library;
-use std::{env, io};
+use std::{env, error::Error};
 
-fn main() -> io::Result<()> {
+fn main() -> Result<(), Box<dyn Error>> {
     let dir = env::current_dir()?;
-    let lib = match Library::open(".whim.toml") {
-        Ok(l) => l,
-        Err(_) => Library::new(),
-    };
+    let lib = Library::scan()?;
+    lib.save("./whim.toml")?;
 
     Ok(())
-    // let md = "# Some Title\nthis is a bunch of markdown\n - one\n - two\n - three\n".to_string();
-    // let page_content = md_content::MdContent::new(md);
-    // let page_title = page_content.title().unwrap_or_default();
-
-    // let content = html::Container::new(html::ContainerType::Div)
-    //     .with_attributes(vec![("class", "content")])
-    //     .with_html(page_content);
-
-    // let html_document = html::HtmlPage::new()
-    //     .with_title(page_title)
-    //     .with_container(content);
-
-    // println!("{}", html_document.to_html_string());
 }

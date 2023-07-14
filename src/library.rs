@@ -4,15 +4,15 @@
 
 use crate::{fnv1_hash::Hashable, md_content::MdContent};
 use glob;
+use ron;
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::{collections::HashMap, fmt, fs, path::Path, result};
 use std::{error, ffi};
 use time;
-use toml;
 
 /// Represents a library and holds information about its documents.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Library {
     /// A [`HashMap`] of file paths to documents and their doc info as stored in
     /// a [`Document`] struct.
@@ -43,7 +43,7 @@ impl Library {
     #[must_use]
     pub fn scan() -> Result<Self> {
         Ok(Self {
-            documents: glob::glob("**.md")?
+            documents: glob::glob("./*.md")?
                 .filter_map(result::Result::ok)
                 .map(|path| -> Result<(String, Document)> {
                     let doc = Document::open(&path)?;
@@ -60,11 +60,12 @@ impl Library {
     #[inline]
     #[must_use]
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        Ok(toml::from_str(
+        Ok(ron::from_str(
             fs::read_to_string(path)
                 .map_err(|_| Error::FileReadError)?
                 .as_str(),
-        )?)
+        )
+        .map_err(|_| Error::DeserializationError)?)
     }
 
     /// Saves the [`Library`], in TOML format, to the given file path.
@@ -73,7 +74,13 @@ impl Library {
     #[inline]
     #[must_use]
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
-        fs::write(path, toml::to_string(self)?).map_err(|_| Error::FileWriteError)
+        dbg!(self);
+        fs::write(
+            path,
+            ron::ser::to_string_pretty(self, ron::ser::PrettyConfig::default())
+                .map_err(|_| Error::SerializationError)?,
+        )
+        .map_err(|_| Error::FileWriteError)
     }
 
     /// Opens a [`Document`] at the given path and adds it to the [`Library`].
@@ -107,7 +114,7 @@ impl Library {
 }
 
 /// Holds infomation about a markdown document.
-#[derive(Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Document {
     name: String,
     hash: u64,
@@ -173,7 +180,7 @@ impl Document {
 pub type Result<T> = result::Result<T, Error>;
 
 /// Represents a library error.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Error {
     /// A [`glob`] [`PatternError`] error.
     ///
@@ -188,8 +195,8 @@ pub enum Error {
     /// [`OsString`]: fs::OsString
     InvalidStringError,
 
-    /// Could not deserialize a struct from given TOML.
-    InvalidTomlError,
+    /// Could not deserialize a struct from given input.
+    DeserializationError,
 
     /// I/O failure to read a directory.
     DirectoryReadError,
@@ -223,17 +230,5 @@ impl From<glob::PatternError> for Error {
 impl From<ffi::OsString> for Error {
     fn from(_: ffi::OsString) -> Self {
         Self::InvalidStringError
-    }
-}
-
-impl From<toml::ser::Error> for Error {
-    fn from(_: toml::ser::Error) -> Self {
-        Self::SerializationError
-    }
-}
-
-impl From<toml::de::Error> for Error {
-    fn from(_: toml::de::Error) -> Self {
-        Self::InvalidTomlError
     }
 }
