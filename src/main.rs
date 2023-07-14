@@ -3,6 +3,7 @@
 // See LICENSE file in repository root for full text.
 
 mod fnv1_hash;
+mod href;
 mod library;
 mod md_content;
 mod prompt;
@@ -15,6 +16,6 @@ fn main() -> Result<(), Box<dyn Error>> {
     let dir = env::current_dir()?;
     let lib = Library::scan()?;
     lib.save("./whim.toml")?;
-
+    lib.gen_html()?.write("/home/evan/html/")?;
     Ok(())
 }

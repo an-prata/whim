@@ -2,13 +2,19 @@
 // Licensed under the MIT License.
 // See LICENSE file in repository root for full text.
 
+use crate::href::Href;
 use crate::{fnv1_hash::Hashable, md_content::MdContent};
-use glob;
-use ron;
-use serde::{Deserialize, Serialize};
+
 use std::borrow::Cow;
+use std::path::PathBuf;
 use std::{collections::HashMap, fmt, fs, path::Path, result};
 use std::{error, ffi};
+
+use build_html as html;
+use glob;
+use html::{Html, HtmlContainer};
+use ron;
+use serde::{Deserialize, Serialize};
 use time;
 
 /// Represents a library and holds information about its documents.
@@ -43,7 +49,7 @@ impl Library {
     #[must_use]
     pub fn scan() -> Result<Self> {
         Ok(Self {
-            documents: glob::glob("./*.md")?
+            documents: glob::glob("./**/*.md")?
                 .filter_map(result::Result::ok)
                 .map(|path| -> Result<(String, Document)> {
                     let doc = Document::open(&path)?;
@@ -54,7 +60,7 @@ impl Library {
         })
     }
 
-    /// Reads a serialized [`Library`] from a file with the given path.
+    /// Reads a serialized [`Library`] from a RON file with the given path.
     ///
     /// [`Library`]: Library
     #[inline]
@@ -68,7 +74,7 @@ impl Library {
         .map_err(|_| Error::DeserializationError)?)
     }
 
-    /// Saves the [`Library`], in TOML format, to the given file path.
+    /// Saves the [`Library`], in RON format, to the given file path.
     ///
     /// [`Library`]: Library
     #[inline]
@@ -110,6 +116,101 @@ impl Library {
                 .filter_map(result::Result::ok)
                 .collect(),
         })
+    }
+
+    /// Creates a returns a [`LibraryHtml`] from documents managed by this
+    /// [`Library`].
+    ///
+    /// [`Library`]: Library
+    /// [`LibraryHtml`]: LibraryHtml
+    #[must_use]
+    pub fn gen_html(&self) -> Result<LibraryHtml> {
+        let mut pages: Vec<(String, html::HtmlPage)> = self
+            .documents
+            .iter()
+            .map(|(p, _)| -> Result<(String, html::HtmlPage)> {
+                let md = MdContent::new(fs::read_to_string(p).map_err(|_| Error::FileReadError)?);
+                let href = p.replace(".md", ".html");
+
+                Ok((
+                    href,
+                    html::HtmlPage::new()
+                        .with_title(md.title().unwrap_or("".to_owned()))
+                        .with_link(
+                            "../".to_owned().repeat(p.clone().path_items() - 1) + "index.html",
+                            "HOME",
+                        )
+                        .with_html(md),
+                ))
+            })
+            .filter_map(result::Result::ok)
+            .collect::<Vec<_>>();
+
+        if pages.len() != self.documents.len() {
+            // At least one item was filtered out and an error must have occured.
+            return Err(Error::FileReadError);
+        }
+
+        let list = self.documents.iter().fold(
+            html::Container::new(html::ContainerType::UnorderedList),
+            |acc, (p, d)| acc.with_link(p.replace(".md", ".html"), d.name()),
+        );
+
+        pages.push((
+            "index.html".to_owned(),
+            html::HtmlPage::new()
+                .with_title("HOME")
+                .with_header(1, "HOME")
+                .with_container(list),
+        ));
+
+        Ok(LibraryHtml::new(pages))
+    }
+}
+
+/// Contains the HTML representation of documents managed by a [`Library`] and
+/// can write the library's HTML to disk.
+#[derive(Debug)]
+pub struct LibraryHtml {
+    pages: Vec<(String, html::HtmlPage)>,
+}
+
+impl LibraryHtml {
+    /// Creates a new [`LibraryHtml`] struct given a [`Vec`] of tuples in which
+    /// the first item is a [`String`] holding the href path of the [`HtmlPage`]
+    /// which is the tuple's second item.
+    ///
+    /// [`LibraryHtml`]: LibraryHtml
+    /// [`Vec`]: Vec
+    /// [`String`]: String
+    /// [`HtmlPage`]: html::HtmlPage
+    #[inline]
+    #[must_use]
+    pub fn new(pages: Vec<(String, html::HtmlPage)>) -> Self {
+        Self { pages }
+    }
+
+    /// Consumes the given [`LibraryHtml`] and writes it to files, corrosponding
+    /// with there href paths, to the given directory.
+    ///
+    /// [`LibraryHtml`]: LibraryHtml
+    pub fn write(self, path: impl AsRef<Path>) -> Result<()> {
+        let path = path.as_ref().to_path_buf();
+
+        for (href, page) in self.pages {
+            let mut file_path = path.clone();
+            dbg!(href.to_owned());
+            file_path.push(href);
+
+            if let Some(p) = file_path.parent() {
+                fs::create_dir_all(p).map_err(|_| Error::DirectoryCreateError)?;
+            }
+
+            dbg!(file_path.clone());
+            fs::write(file_path, page.to_html_string()).map_err(|_| Error::FileWriteError)?;
+        }
+
+        Ok(())
     }
 }
 
@@ -200,6 +301,9 @@ pub enum Error {
 
     /// I/O failure to read a directory.
     DirectoryReadError,
+
+    /// I/O failure to create a directory.
+    DirectoryCreateError,
 
     /// I/O failure to read file.
     FileReadError,
