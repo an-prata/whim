@@ -2,6 +2,7 @@
 // Licensed under the MIT License.
 // See LICENSE file in repository root for full text.
 
+mod args;
 mod fnv1_hash;
 mod href;
 mod library;
