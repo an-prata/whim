@@ -46,30 +46,12 @@ impl<T: Iterator<Item = String>> ArgsParser<T> {
         self
     }
 
-    /// Adds all [`Flag`]s within `flags` for parsing.
-    ///
-    /// [`Flag`]: Flag
-    #[must_use]
-    pub fn flags(mut self, mut flags: Vec<Flag>) -> Self {
-        self.flags.append(&mut flags);
-        self
-    }
-
     /// Adds a [`Command`] for parsing.
     ///
     /// [`Command`]: Command
     #[must_use]
     pub fn command(mut self, command: Command) -> Self {
         self.commands.push(command);
-        self
-    }
-
-    /// Adds all [`Command`]s within `commands` for parsing.
-    ///
-    /// [`Command`]: Command
-    #[must_use]
-    pub fn commands(mut self, mut commands: Vec<Command>) -> Self {
-        self.commands.append(&mut commands);
         self
     }
 
