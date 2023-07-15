@@ -290,7 +290,7 @@ pub enum Error {
     /// UTF-8 [`String.`]
     ///
     /// [`String`]: String
-    /// [`OsString`]: fs::OsString
+    /// [`OsString`]: ffi::OsString
     InvalidStringError,
 
     /// Could not deserialize a struct from given input.
