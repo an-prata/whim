@@ -63,7 +63,6 @@ impl<T: Iterator<Item = String>> ArgsParser<T> {
     /// [`Command`]: Command
     /// [`Value`]: Value
     /// [`ParsedArgs`]: ParsedArgs
-    #[must_use]
     pub fn parse(self) -> Result<ParsedArgs> {
         let mut prev = ArgsItem::Value(Value::Bool(false));
         let mut items = Vec::new();
@@ -201,7 +200,7 @@ impl Flag {
     ///
     /// [`Flag`]: Flag
     #[must_use]
-    pub fn name<'a>(&'a self) -> &'a str {
+    pub fn name(&self) -> &str {
         match self {
             Flag::Bool(s) => s,
             Flag::Uint(s) => s,

@@ -38,7 +38,7 @@ impl MdContent {
             match event {
                 // Finds the first H1 heading in the document, if it exists.
                 md::Event::Start(md::Tag::Heading(md::HeadingLevel::H1, _, _)) => {
-                    while let Some(e) = parser.next() {
+                    for e in parser.by_ref() {
                         match e {
                             // Return first text found after the first found H1
                             // heading.

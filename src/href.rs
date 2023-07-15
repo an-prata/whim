@@ -21,9 +21,9 @@ pub trait Href {
 
 impl Href for String {
     fn path_items(&self) -> usize {
-        match self.chars().nth(0).unwrap_or_default() == '/' {
-            true => self.matches("/").count(),
-            false => self.matches("/").count() + 1,
+        match self.chars().next().unwrap_or_default() == '/' {
+            true => self.matches('/').count(),
+            false => self.matches('/').count() + 1,
         }
     }
 

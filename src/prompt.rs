@@ -82,8 +82,7 @@ pub trait PromptItem: Sized {
 
         let mut input = String::new();
         io::stdin().read_line(&mut input).map_err(|_| Error)?;
-
-        Ok(Self::parse_input(input)?)
+        Self::parse_input(input)
     }
 
     /// Given an input [`String`], returns a [`PromptItem`]. Should return a

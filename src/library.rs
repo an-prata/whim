@@ -46,7 +46,6 @@ impl Library {
     ///
     /// [`Document`]: Document
     /// [`Library`]: Library
-    #[must_use]
     pub fn scan() -> Result<Self> {
         Ok(Self {
             documents: glob::glob("./**/*.md")?
@@ -64,21 +63,19 @@ impl Library {
     ///
     /// [`Library`]: Library
     #[inline]
-    #[must_use]
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        Ok(ron::from_str(
+        ron::from_str(
             fs::read_to_string(path)
                 .map_err(|_| Error::FileReadError)?
                 .as_str(),
         )
-        .map_err(|_| Error::DeserializationError)?)
+        .map_err(|_| Error::DeserializationError)
     }
 
     /// Saves the [`Library`], in RON format, to the given file path.
     ///
     /// [`Library`]: Library
     #[inline]
-    #[must_use]
     pub fn save(&self, path: impl AsRef<Path>) -> Result<()> {
         fs::write(
             path,
@@ -92,17 +89,29 @@ impl Library {
     ///
     /// [`Document`]: Document
     /// [`Library`]: Library
-    pub fn add_doc(&mut self, path: String) -> Result<()> {
+    pub fn add_document(&mut self, path: String) -> Result<()> {
         let doc = Document::open(&path.as_str())?;
         self.documents.insert(path, doc);
         Ok(())
+    }
+
+    /// Gets the backing hashmap of the [`Library`] which has value of type
+    /// [`Document`] that are keyed with [`String`]s of the [`Document`]'s file
+    /// path.
+    ///
+    /// [`Library`]: Library
+    /// [`Document`]: Document
+    /// [`String`]: String
+    #[inline]
+    #[must_use]
+    pub fn documents(&self) -> &HashMap<String, Document> {
+        &self.documents
     }
 
     /// Updates all [`Document`] items within the [`Library`].
     //
     /// [`Document`]: Document
     /// [`Library`]: Library
-    #[must_use]
     pub fn update(self) -> Result<Self> {
         Ok(Self {
             documents: self
@@ -122,12 +131,11 @@ impl Library {
     ///
     /// [`Library`]: Library
     /// [`LibraryHtml`]: LibraryHtml
-    #[must_use]
     pub fn gen_html(&self) -> Result<LibraryHtml> {
         let mut pages: Vec<(String, html::HtmlPage)> = self
             .documents
-            .iter()
-            .map(|(p, _)| -> Result<(String, html::HtmlPage)> {
+            .keys()
+            .map(|p| -> Result<(String, html::HtmlPage)> {
                 let md = MdContent::new(fs::read_to_string(p).map_err(|_| Error::FileReadError)?);
                 let href = p.replace(".md", ".html");
 
@@ -225,7 +233,6 @@ impl Document {
     /// favor of using methods of [`Library`].
     ///
     /// [`Library`]: Library
-    #[must_use]
     pub fn open(path: &impl AsRef<Path>) -> Result<Self> {
         let content = MdContent::new(fs::read_to_string(path).map_err(|_| Error::FileReadError)?);
         Ok(Self {
@@ -241,7 +248,6 @@ impl Document {
     ///
     /// [`Document`]: Document
     /// [`MdContent`]: MdContent
-    #[must_use]
     pub fn update(self, path: &impl AsRef<Path>) -> Result<Self> {
         let content = MdContent::new(fs::read_to_string(path).map_err(|_| Error::FileReadError)?);
         let new_hash = content.fnv1_hash();
@@ -253,7 +259,6 @@ impl Document {
                 hash: new_hash,
                 mod_time: time::OffsetDateTime::now_local()
                     .unwrap_or(time::OffsetDateTime::now_utc()),
-                ..self
             },
         })
     }
@@ -291,7 +296,7 @@ pub enum Error {
     ///
     /// [`String`]: String
     /// [`OsString`]: ffi::OsString
-    InvalidStringError,
+    InvalidString,
 
     /// Could not deserialize a struct from given input.
     DeserializationError,
@@ -330,6 +335,6 @@ impl From<glob::PatternError> for Error {
 // returned by `OsString::into_string()`.
 impl From<ffi::OsString> for Error {
     fn from(_: ffi::OsString) -> Self {
-        Self::InvalidStringError
+        Self::InvalidString
     }
 }
