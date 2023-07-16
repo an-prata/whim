@@ -4,17 +4,12 @@
 
 use crate::href::Href;
 use crate::{fnv1_hash::Hashable, md_content::MdContent};
-
-use std::borrow::Cow;
-use std::path::PathBuf;
-use std::{collections::HashMap, fmt, fs, path::Path, result};
-use std::{error, ffi};
-
 use build_html as html;
 use glob;
 use html::{Html, HtmlContainer};
 use ron;
 use serde::{Deserialize, Serialize};
+use std::{borrow::Cow, collections::HashMap, error, ffi, fmt, fs, path::Path, result};
 use time;
 
 /// Represents a library and holds information about its documents.
@@ -124,6 +119,23 @@ impl Library {
                 .filter_map(result::Result::ok)
                 .collect(),
         })
+    }
+
+    /// Checks each of this [`Library`]'s documents for change since last update
+    /// and returns a [`Vec`] containing the paths of those [`Document`]s. This
+    /// function does not propagate I/O errors from reading documents.
+    ///
+    /// [`Library`]: Library
+    /// [`Vec`]: Vec
+    /// [`Document`]: Document
+    pub fn changed_docs(&self) -> Vec<String> {
+        self.documents
+            .iter()
+            .filter_map(|(p, d)| match d.has_changed(&p).ok()? {
+                true => Some(p.clone()),
+                false => None,
+            })
+            .collect()
     }
 
     /// Creates a returns a [`LibraryHtml`] from documents managed by this
@@ -242,9 +254,9 @@ impl Document {
         })
     }
 
-    /// Updates the given [`Document`] by comparing its stored hash with that of
-    /// the given [`MdContent`], if they are unequal then the modification time
-    /// is updated to be the current time and the stored hash is updated.
+    /// Updates the given [`Document`] by comparing its stored hash of the given
+    /// file's content, if they are unequal then the modification time is
+    /// updated to be the current time and the stored hash is updated.
     ///
     /// [`Document`]: Document
     /// [`MdContent`]: MdContent
@@ -261,6 +273,16 @@ impl Document {
                     .unwrap_or(time::OffsetDateTime::now_utc()),
             },
         })
+    }
+
+    /// Returns true if the [`Document`] has changed since its last update. This
+    /// is checked by taking the hash of the given file and comparing it to that
+    /// which is stored within the [`Document`].
+    ///
+    /// [`Document`]: Document
+    pub fn has_changed(&self, path: &impl AsRef<Path>) -> Result<bool> {
+        let content = MdContent::new(fs::read_to_string(path).map_err(|_| Error::FileReadError)?);
+        Ok(self.hash != content.fnv1_hash())
     }
 
     /// Gets the time of the last modification as made by either the struct's
