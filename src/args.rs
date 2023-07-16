@@ -6,13 +6,21 @@ use std::{collections::HashMap, error, fmt, rc::Rc, result};
 
 /// Parses command line arguments based on given commands and flags.
 #[derive(Debug)]
-pub struct ArgsParser<T: Iterator<Item = String>> {
+pub struct ArgsParser<T, I>
+where
+    T: Iterator<Item = I>,
+    I: AsRef<str>,
+{
     args: T,
     commands: Vec<Command>,
     flags: Vec<Flag>,
 }
 
-impl<T: Iterator<Item = String>> ArgsParser<T> {
+impl<T, I> ArgsParser<T, I>
+where
+    T: Iterator<Item = I>,
+    I: AsRef<str>,
+{
     /// Creates a new [`ArgsParser`] with the given [`Iterator`] over all
     /// arguments as [`String`]s.
     ///
@@ -67,20 +75,39 @@ impl<T: Iterator<Item = String>> ArgsParser<T> {
         let mut prev = ArgsItem::Value(Value::Bool(false));
         let mut items = Vec::new();
 
+        // Takes an argument and tries to parse it as a `Flag`.
+        let try_parse_flag = |arg: &str| -> Result<ArgsItem> {
+            let flag = match arg.starts_with("--") {
+                true => arg.replace("--", ""),
+                false if arg.len() == "-f".len() => arg.replace('-', ""),
+                _ => return Err(Error::MalformedArgument(arg.into())),
+            };
+
+            match self.flags.iter().find(|f| f.name() == flag.as_str()) {
+                Some(f) => Ok(ArgsItem::Flag(f.to_owned())),
+                None => Err(Error::BadFlag),
+            }
+        };
+
         for arg in self.args {
-            prev = match arg.starts_with("--") {
-                true => {
-                    let flag = arg.replace("--", "");
-                    match self.flags.iter().find(|f| f.name() == flag.as_str()) {
-                        Some(f) => ArgsItem::Flag(f.to_owned()),
-                        None => return Err(Error::BadFlag),
+            let arg = arg.as_ref();
+
+            prev = match prev {
+                ArgsItem::Flag(flag @ Flag::Bool(_)) => {
+                    match self.commands.iter().find(|c| &*c.0 == arg) {
+                        Some(c) => ArgsItem::Command(c.clone()),
+                        None => match arg.starts_with('-') {
+                            true => try_parse_flag(arg)?,
+                            false => ArgsItem::Value(flag.parse_value(arg)?),
+                        },
                     }
                 }
-                false => match self.commands.iter().find(|c| &*c.0 == arg.as_str()) {
-                    Some(c) => ArgsItem::Command(c.to_owned()),
-                    None => match prev {
-                        ArgsItem::Flag(f) => ArgsItem::Value(f.parse_value(arg.as_str())?),
-                        _ => ArgsItem::Value(Value::String(arg)),
+                ArgsItem::Flag(flag) => ArgsItem::Value(flag.parse_value(arg)?),
+                _ => match self.commands.iter().find(|c| &*c.0 == arg) {
+                    Some(c) => ArgsItem::Command(c.clone()),
+                    None => match arg.starts_with('-') {
+                        true => try_parse_flag(arg)?,
+                        false => ArgsItem::Value(Value::String(arg.to_owned())),
                     },
                 },
             };
@@ -129,15 +156,14 @@ impl ParsedArgs {
         while let Some(item) = items.next() {
             match item {
                 ArgsItem::Flag(f) => match items.peek() {
-                    Some(ArgsItem::Value(v)) => {
-                        map.insert(f.clone(), Some(v.clone()));
-                    }
-                    _ => {
-                        map.insert(f.clone(), None);
-                    }
+                    Some(ArgsItem::Value(v)) => map.insert(f.clone(), Some(v.clone())),
+                    _ => match f {
+                        Flag::Bool(_) => map.insert(f.clone(), Some(Value::Bool(true))),
+                        _ => map.insert(f.clone(), None),
+                    },
                 },
                 _ => continue,
-            }
+            };
         }
 
         map
@@ -183,12 +209,38 @@ pub enum ArgsItem {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Command(pub Rc<str>);
 
-/// Represents a command line flag, preceded by two dashes ("--"). Its value for
-/// each variant is the flag's name.
+/// Represent a command line flag, [`Flag`]s with single character names may be
+/// used with a single dash (e.g. '-f') or double dash (e.g. '--f'). A [`Flag`]
+/// who's name exceeds a single character must be preceded by two dashes
+/// (e.g. '--flag').
 ///
-/// "myapp --arg 123" -> `Flag::Uint("arg")`
+/// # Examples
+///
+/// ```
+/// use args::*;
+///
+/// let args = vec!["program_name", "-f", "123"];
+/// let flag = Flag::Int("f".into())
+/// let parsed_args = ArgsParser::new(args)
+///     .flag(flag.clone())
+///     .parse()
+///     .unwrap();
+///
+/// let parsed_flags = parsed_args.flags();
+/// assert_eq!(parsed_flags[&flag], Some(Value::Int(123)));
+/// ```
+///
+/// [`Flag`]: Flag
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Flag {
+    /// The [`Bool`] variant may take an argument, but its presence will imply
+    /// a value of `true` otherwise, though its absence does not imply a value
+    /// of `false`, instead [`ParsedArgs`] will map the [`Flag`] to [`None`].
+    ///
+    /// [`Bool`]: Flag::Bool
+    /// [`ParsedArgs`]: ParsedArgs
+    /// [`Flag`]: Flag
+    /// [`None`]: None
     Bool(Rc<str>),
     Uint(Rc<str>),
     Int(Rc<str>),
@@ -209,6 +261,14 @@ impl Flag {
         }
     }
 
+    /// Returns true if the [`Flag`]'s name is a single character.
+    ///
+    /// [`Flag`]: Flag
+    #[must_use]
+    pub fn single_char(&self) -> bool {
+        self.name().len() == 1
+    }
+
     /// Parses an argument into a [`Value`] of a variant that coorasponds to the
     /// variant of this [`Flag`].
     ///
@@ -217,10 +277,22 @@ impl Flag {
     #[must_use]
     pub fn parse_value(&self, arg: &str) -> Result<Value> {
         Ok(match self {
-            Flag::Bool(_) => Value::Bool(arg.parse().map_err(|_| Error::MalformedArgument)?),
-            Flag::Uint(_) => Value::Uint(arg.parse().map_err(|_| Error::MalformedArgument)?),
-            Flag::Int(_) => Value::Int(arg.parse().map_err(|_| Error::MalformedArgument)?),
-            Flag::String(_) => Value::String(arg.parse().map_err(|_| Error::MalformedArgument)?),
+            Flag::Bool(_) => Value::Bool(
+                arg.parse()
+                    .map_err(|_| Error::MalformedArgument(arg.into()))?,
+            ),
+            Flag::Uint(_) => Value::Uint(
+                arg.parse()
+                    .map_err(|_| Error::MalformedArgument(arg.into()))?,
+            ),
+            Flag::Int(_) => Value::Int(
+                arg.parse()
+                    .map_err(|_| Error::MalformedArgument(arg.into()))?,
+            ),
+            Flag::String(_) => Value::String(
+                arg.parse()
+                    .map_err(|_| Error::MalformedArgument(arg.into()))?,
+            ),
         })
     }
 }
@@ -241,10 +313,12 @@ type Result<T> = result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     /// At least one argument was incorrect for its position. e.g. an text
-    /// string given to a [`Flag::Int`] flag.
+    /// string given to a [`Flag::Int`] flag. The argument determined to be
+    /// malformed is included as the value of this [`MalformedArgument`].
     ///
     /// [`Flag::Int`]: Flag::Int
-    MalformedArgument,
+    /// [`MalformedArgument`]: Error::MalformedArgument
+    MalformedArgument(Rc<str>),
 
     /// An argument syntactically matches a what would be expected for a
     /// [`Flag`], but did not match any given [`Flag`] names.
@@ -268,23 +342,25 @@ mod tests {
     #[test]
     fn args_test() {
         let args = vec![
-            "program".to_owned(),
-            "command".to_owned(),
-            "--flag0".to_owned(),
-            "123".to_owned(),
-            "--flag1".to_owned(),
-            "true".to_owned(),
+            "program", "command", "--flag0", "123", "--flag1", "true", "-f", "--flag4", "command",
+            "--flag5", "-2",
         ];
 
         let flag0 = Flag::Uint("flag0".into());
         let flag1 = Flag::Bool("flag1".into());
         let flag2 = Flag::Int("flag2".into());
+        let flag3 = Flag::Bool("f".into());
+        let flag4 = Flag::String("flag4".into());
+        let flag5 = Flag::Int("flag5".into());
         let cmd = Command("command".into());
 
         let parsed_args = ArgsParser::new(args.into_iter())
             .flag(flag0.clone())
             .flag(flag1.clone())
             .flag(flag2.clone())
+            .flag(flag3.clone())
+            .flag(flag4.clone())
+            .flag(flag5.clone())
             .command(cmd.clone())
             .parse()
             .unwrap();
@@ -294,9 +370,13 @@ mod tests {
         assert_eq!(flags[&flag0], Some(Value::Uint(123)));
         assert_eq!(flags[&flag1], Some(Value::Bool(true)));
         assert_eq!(flags[&flag2], None);
+        assert_eq!(flags[&flag3], Some(Value::Bool(true)));
+        assert_eq!(flags[&flag4], Some(Value::String("command".to_owned())));
+        assert_eq!(flags[&flag5], Some(Value::Int(-2)));
 
         let commands = parsed_args.commands();
 
+        assert_eq!(commands.len(), 1);
         assert_eq!(commands[0], cmd);
     }
 }
