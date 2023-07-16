@@ -3,6 +3,7 @@
 // See LICENSE file in repository root for full text.
 
 mod args;
+mod commands;
 mod fnv1_hash;
 mod href;
 mod library;
@@ -13,9 +14,6 @@ use args::{ArgsParser, Command};
 use library::Library;
 use prompt::PromptItem;
 use std::{env, error::Error};
-
-const LIBRARY_FILE: &str = ".whim.ron";
-const HTML_PATH: &str = "./whim-build";
 
 const NEW_COMMAND: &str = "new";
 const UPDATE_COMMAND: &str = "update";
@@ -54,42 +52,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     };
 
     match &*command.0 {
-        NEW_COMMAND => {
-            let lib = Library::scan()?;
-
-            match lib.documents().len() > 0 {
-                true => {
-                    println!(
-                        "whim found {} markdown documents in the current directory:",
-                        lib.documents().len()
-                    );
-
-                    for doc in lib.documents().keys() {
-                        println!("\t{}", doc);
-                    }
-                }
-                false => {
-                    println!("whim found no markdown documents in the current directory")
-                }
-            }
-
-            let yn = prompt::Yes::from_prompt(
-                format!(
-                    "create a new library with {} documents",
-                    lib.documents().len()
-                ),
-                Some('?'),
-            )?;
-
-            match yn {
-                prompt::Yes::Yes => {
-                    lib.save(LIBRARY_FILE)?;
-                    return Ok(());
-                }
-                prompt::Yes::No => return Ok(()),
-            }
-        }
-
+        NEW_COMMAND => return commands::new(),
+        UPDATE_COMMAND => return commands::update(),
         _ => (),
     };
 
