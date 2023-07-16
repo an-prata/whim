@@ -220,7 +220,7 @@ pub struct Command(pub Rc<str>);
 /// use args::*;
 ///
 /// let args = vec!["program_name", "-f", "123"];
-/// let flag = Flag::Int("f".into())
+/// let flag = Flag::Int("f".into());
 /// let parsed_args = ArgsParser::new(args)
 ///     .flag(flag.clone())
 ///     .parse()
