@@ -9,14 +9,102 @@ mod library;
 mod md_content;
 mod prompt;
 
-use build_html as html;
+use args::{ArgsParser, Command};
 use library::Library;
+use prompt::PromptItem;
 use std::{env, error::Error};
 
+const LIBRARY_FILE: &str = ".whim.ron";
+const HTML_PATH: &str = "./whim-build";
+
+const NEW_COMMAND: &str = "new";
+const UPDATE_COMMAND: &str = "update";
+const SCAN_COMMAND: &str = "scan";
+const ADD_COMMAND: &str = "add";
+
 fn main() -> Result<(), Box<dyn Error>> {
-    let dir = env::current_dir()?;
-    let lib = Library::scan()?;
-    lib.save("./whim.toml")?;
-    lib.gen_html()?.write("/home/evan/html/")?;
+    let cmd_new = Command(NEW_COMMAND.into());
+    let cmd_update = Command(UPDATE_COMMAND.into());
+    let cmd_scan = Command(SCAN_COMMAND.into());
+    let cmd_add = Command(ADD_COMMAND.into());
+
+    let args = match ArgsParser::new(env::args())
+        .command(cmd_new.clone())
+        .command(cmd_update.clone())
+        .command(cmd_scan.clone())
+        .command(cmd_add.clone())
+        .parse()
+    {
+        Ok(v) => v,
+        Err(_) => {
+            print_help();
+            return Ok(());
+        }
+    };
+
+    let command = {
+        let cmds = args.commands();
+
+        if cmds.len() > 1 {
+            println!("Only singlular commands permitted.");
+            return Ok(());
+        }
+
+        cmds[0].clone()
+    };
+
+    match &*command.0 {
+        NEW_COMMAND => {
+            let lib = Library::scan()?;
+
+            if lib.documents().len() > 0 {
+                println!(
+                    "whim found {} markdown documents in the current directory:",
+                    lib.documents().len()
+                );
+
+                for doc in lib.documents().keys() {
+                    println!("\t{}", doc);
+                }
+            } else {
+                println!("whim found no markdown documents in the current directory")
+            }
+
+            let yn = prompt::Yes::from_prompt(
+                format!(
+                    "create a new library with {} documents",
+                    lib.documents().len()
+                ),
+                Some('?'),
+            )?;
+
+            match yn {
+                prompt::Yes::Yes => {
+                    lib.save(LIBRARY_FILE)?;
+                    return Ok(());
+                }
+                prompt::Yes::No => return Ok(()),
+            }
+        }
+
+        _ => (),
+    };
+
     Ok(())
+}
+
+fn print_help() {
+    println!(
+        "\
+        whim\n\
+        \n\
+        Usage: whim [COMMAND]\n\
+        \n\
+        Commands:\n\
+        \tnew      Creates new library in the current directory.\n\
+        \tupdate   Updates the library in the current directory.\n\
+        \tscan     Scans the directory for new files.\n\
+        \tadd      Add a document.\
+        "
+    )
 }
