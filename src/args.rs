@@ -130,8 +130,8 @@ where
 /// [`Value`]: Value
 /// [`Command`]: Command
 pub struct ParsedArgs {
+    pub items: Vec<ArgsItem>,
     flags: Vec<Flag>,
-    items: Vec<ArgsItem>,
 }
 
 impl ParsedArgs {
