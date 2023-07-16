@@ -59,24 +59,69 @@ pub fn update() -> Result<(), Box<dyn error::Error>> {
                 println!("    {}", d);
             }
 
-            let yn =
-                prompt::Yes::from_prompt(format!("update {} documents", docs.len()), Some('?'))?;
+            let yn = prompt::Yes::from_prompt(
+                format!("update {} documents in library", docs.len()),
+                Some('?'),
+            )?;
 
             match yn {
                 prompt::Yes::Yes => {
                     lib.update()?.save(LIBRARY_FILE)?;
-                    println!("updated {} documents", docs.len());
+                    println!("updated {} documents in library", docs.len());
                     Ok(())
                 }
                 prompt::Yes::No => {
-                    println!("updated 0 documents");
+                    println!("updated 0 documents in library");
                     Ok(())
                 }
             }
         }
         _ => {
-            println!("no updates to make, 0 documents have changed");
+            println!("no updates to make");
             return Ok(());
+        }
+    }
+}
+
+pub fn scan() -> Result<(), Box<dyn error::Error>> {
+    let mut lib = open_lib();
+    let docs = lib.scan_for_new()?;
+
+    match docs.len() {
+        1.. => {
+            println!("found {} documents not in the library:", docs.len());
+
+            for doc in docs.clone() {
+                println!("    {}", doc);
+            }
+
+            let yn = prompt::Yes::from_prompt(
+                format!("add {} documents to library", docs.len()),
+                Some('?'),
+            )?;
+
+            match yn {
+                prompt::Yes::Yes => {
+                    for doc in docs.clone() {
+                        match lib.add_document(doc.clone()) {
+                            Ok(_) => println!("    added {}", doc),
+                            Err(_) => println!("    failed to add {}", doc),
+                        }
+                    }
+
+                    match lib.save(LIBRARY_FILE) {
+                        Ok(_) => println!("added {} documents to library", docs.len()),
+                        Err(_) => println!("could not update library with new documents"),
+                    }
+
+                    Ok(())
+                }
+                prompt::Yes::No => todo!(),
+            }
+        }
+        _ => {
+            println!("found no documents not already in library");
+            Ok(())
         }
     }
 }
@@ -85,7 +130,7 @@ pub fn update() -> Result<(), Box<dyn error::Error>> {
 fn open_lib() -> Library {
     match Library::open(LIBRARY_FILE) {
         Ok(l) => l,
-        Err(e) => {
+        Err(_) => {
             println!("whim could not open a library in the current directory, you may need to create one with `whim new`");
             process::exit(0);
         }

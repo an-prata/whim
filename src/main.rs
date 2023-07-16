@@ -54,6 +54,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     match &*command.0 {
         NEW_COMMAND => return commands::new(),
         UPDATE_COMMAND => return commands::update(),
+        SCAN_COMMAND => return commands::scan(),
         _ => (),
     };
 
