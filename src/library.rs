@@ -54,6 +54,28 @@ impl Library {
         })
     }
 
+    /// Scans the current directory for markdown files and returns a [`Vec`] of
+    /// documents not yet included in the [`Library`].
+    ///
+    /// [`Vec`]: Vec
+    /// [`Library`]: Library
+    pub fn scan_for_new(&self) -> Result<Vec<String>> {
+        Ok(glob::glob("./**/*.md")?
+            .filter_map(result::Result::ok)
+            .filter_map(|file| {
+                let path = match file.into_os_string().into_string() {
+                    Ok(v) => v,
+                    Err(_) => return None,
+                };
+
+                match self.documents.contains_key(&path) {
+                    true => None,
+                    false => Some(path.clone()),
+                }
+            })
+            .collect())
+    }
+
     /// Reads a serialized [`Library`] from a RON file with the given path.
     ///
     /// [`Library`]: Library
