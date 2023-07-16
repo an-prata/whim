@@ -3,8 +3,10 @@
 // See LICENSE file in repository root for full text.
 
 use std::{
+    error,
     fmt::{self, Display},
-    io, result,
+    io::{self, Write},
+    result,
 };
 
 /// A yes or no prompt defaulting to yes.
@@ -23,7 +25,7 @@ impl PromptItem for Yes {
 
     fn parse_input(input: String) -> Result<Self> {
         match input.to_lowercase().as_str() {
-            "n" | "no" => Ok(Self::No),
+            "n\n" | "no\n" => Ok(Self::No),
             _ => Ok(Self::Yes),
         }
     }
@@ -74,13 +76,14 @@ pub trait PromptItem: Sized {
     ///
     /// [`Self`]: Self
     /// [`std::io::stdin`]: io::stdin
-    fn from_prompt(prompt: String, suffix: Option<char>) -> Result<Self> {
+    fn from_prompt(prompt: impl AsRef<str>, suffix: Option<char>) -> Result<Self> {
         match suffix {
-            Some(c) => print!("{} [{}] {} ", prompt, Self::OPTIONS, c),
-            None => print!("{} [{}] ", prompt, Self::OPTIONS),
+            Some(c) => print!("{} [{}] {} ", prompt.as_ref(), Self::OPTIONS, c),
+            None => print!("{} [{}] ", prompt.as_ref(), Self::OPTIONS),
         }
 
         let mut input = String::new();
+        io::stdout().flush().map_err(|_| Error)?;
         io::stdin().read_line(&mut input).map_err(|_| Error)?;
         Self::parse_input(input)
     }
@@ -90,7 +93,8 @@ pub trait PromptItem: Sized {
     /// input 'a' could reasonably give a "Yes" since it would be the default by
     /// convention. This applies to blank input as well.
     ///
-    /// If an option is a default it should be capatalized.
+    /// If an option is a default it should be capatalized. [`String`]s passed
+    /// to this function may end with a newline and should be matched as such.
     ///
     /// [`String`]: String
     /// [`PromptItem`]: PromptItem
@@ -104,7 +108,10 @@ pub trait PromptItem: Sized {
 pub type Result<T> = result::Result<T, Error>;
 
 /// An error for prompts.
+#[derive(Debug)]
 pub struct Error;
+
+impl error::Error for Error {}
 
 impl Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
