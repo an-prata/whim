@@ -57,17 +57,20 @@ fn main() -> Result<(), Box<dyn Error>> {
         NEW_COMMAND => {
             let lib = Library::scan()?;
 
-            if lib.documents().len() > 0 {
-                println!(
-                    "whim found {} markdown documents in the current directory:",
-                    lib.documents().len()
-                );
+            match lib.documents().len() > 0 {
+                true => {
+                    println!(
+                        "whim found {} markdown documents in the current directory:",
+                        lib.documents().len()
+                    );
 
-                for doc in lib.documents().keys() {
-                    println!("\t{}", doc);
+                    for doc in lib.documents().keys() {
+                        println!("\t{}", doc);
+                    }
                 }
-            } else {
-                println!("whim found no markdown documents in the current directory")
+                false => {
+                    println!("whim found no markdown documents in the current directory")
+                }
             }
 
             let yn = prompt::Yes::from_prompt(
