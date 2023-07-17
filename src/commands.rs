@@ -6,7 +6,7 @@ use crate::{
     library::Library,
     prompt::{self, PromptItem},
 };
-use std::{error, process};
+use std::{error, path::Path, process};
 
 const LIBRARY_FILE: &str = ".whim.ron";
 const HTML_PATH: &str = "./whim-build";
@@ -124,6 +124,41 @@ pub fn scan() -> Result<(), Box<dyn error::Error>> {
             Ok(())
         }
     }
+}
+
+pub fn add(path: String) -> Result<(), Box<dyn error::Error>> {
+    let mut lib = open_lib();
+
+    match lib.add_document(path.clone()) {
+        Ok(_) => (),
+        Err(_) => println!("could not add '{}'", path),
+    }
+
+    match lib.save(LIBRARY_FILE) {
+        Ok(_) => println!("added '{}'", path),
+        Err(_) => println!("could not save library, add failed"),
+    }
+
+    Ok(())
+}
+
+pub fn build(path: String) -> Result<(), Box<dyn error::Error>> {
+    let lib = open_lib();
+
+    let lib_html = match lib.gen_html() {
+        Ok(v) => v,
+        Err(_) => {
+            println!("could not read all documents for parsing");
+            return Ok(());
+        }
+    };
+
+    match lib_html.write(path.clone()) {
+        Ok(_) => println!("wrote HTML to '{}'", path),
+        Err(_) => println!("could not write HTML to '{}", path),
+    }
+
+    Ok(())
 }
 
 #[inline]

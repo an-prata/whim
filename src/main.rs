@@ -11,26 +11,27 @@ mod md_content;
 mod prompt;
 
 use args::{ArgsParser, Command};
-use library::Library;
-use prompt::PromptItem;
 use std::{env, error::Error};
 
 const NEW_COMMAND: &str = "new";
 const UPDATE_COMMAND: &str = "update";
 const SCAN_COMMAND: &str = "scan";
 const ADD_COMMAND: &str = "add";
+const BUILD_COMMAND: &str = "build";
 
 fn main() -> Result<(), Box<dyn Error>> {
     let cmd_new = Command(NEW_COMMAND.into());
     let cmd_update = Command(UPDATE_COMMAND.into());
     let cmd_scan = Command(SCAN_COMMAND.into());
     let cmd_add = Command(ADD_COMMAND.into());
+    let cmd_build = Command(BUILD_COMMAND.into());
 
     let args = match ArgsParser::new(env::args())
         .command(cmd_new.clone())
         .command(cmd_update.clone())
         .command(cmd_scan.clone())
         .command(cmd_add.clone())
+        .command(cmd_build.clone())
         .parse()
     {
         Ok(v) => v,
@@ -55,6 +56,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         NEW_COMMAND => return commands::new(),
         UPDATE_COMMAND => return commands::update(),
         SCAN_COMMAND => return commands::scan(),
+        ADD_COMMAND => {
+            return commands::add(match &args.command_parameters(cmd_add).unwrap()[0] {
+                args::Value::String(s) => s.clone(),
+                _ => unreachable!(),
+            })
+        }
+        BUILD_COMMAND => {
+            return commands::build(match &args.command_parameters(cmd_build).unwrap()[0] {
+                args::Value::String(s) => s.clone(),
+                _ => unreachable!(),
+            })
+        }
         _ => (),
     };
 
