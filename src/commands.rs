@@ -66,8 +66,9 @@ pub fn update() -> Result<(), Box<dyn error::Error>> {
 
             match yn {
                 prompt::Yes::Yes => {
+                    let len = docs.len();
                     lib.update()?.save(LIBRARY_FILE)?;
-                    println!("updated {} documents in library", docs.len());
+                    println!("updated {} documents in library", len);
                     Ok(())
                 }
                 prompt::Yes::No => {
@@ -103,7 +104,7 @@ pub fn scan() -> Result<(), Box<dyn error::Error>> {
             match yn {
                 prompt::Yes::Yes => {
                     for doc in docs.clone() {
-                        match lib.add_document(doc.clone()) {
+                        match lib.add_document(doc.as_ref()) {
                             Ok(_) => println!("    added {}", doc),
                             Err(_) => println!("    failed to add {}", doc),
                         }

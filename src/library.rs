@@ -9,7 +9,7 @@ use glob;
 use html::{Html, HtmlContainer};
 use ron;
 use serde::{Deserialize, Serialize};
-use std::{borrow::Cow, collections::HashMap, error, ffi, fmt, fs, path::Path, result};
+use std::{collections::HashMap, error, ffi, fmt, fs, path::Path, rc::Rc, result};
 use time;
 
 /// Represents a library and holds information about its documents.
@@ -20,21 +20,10 @@ pub struct Library {
     ///
     /// [`HashMap`]: HashMap
     /// [`Document`]: Document
-    documents: HashMap<String, Document>,
+    documents: HashMap<Rc<str>, Document>,
 }
 
 impl Library {
-    /// Creates a new, empty [`Library`].
-    ///
-    /// [`Library`]: Library
-    #[inline]
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            documents: HashMap::new(),
-        }
-    }
-
     /// Scans the current directory for any files ending in the ".md" file
     /// extension and creates a new [`Library`] by opening each file as a
     /// [`Document`].
@@ -44,12 +33,11 @@ impl Library {
     pub fn scan() -> Result<Self> {
         Ok(Self {
             documents: glob::glob("./**/*.md")?
-                .filter_map(result::Result::ok)
-                .map(|path| -> Result<(String, Document)> {
-                    let doc = Document::open(&path)?;
-                    Ok((path.into_os_string().into_string()?, doc))
+                .filter_map(|path| {
+                    let path = path.ok()?;
+                    let doc = Document::open(&path).ok()?;
+                    Some((path.as_os_str().to_str()?.into(), doc))
                 })
-                .filter_map(result::Result::ok)
                 .collect(),
         })
     }
@@ -59,18 +47,14 @@ impl Library {
     ///
     /// [`Vec`]: Vec
     /// [`Library`]: Library
-    pub fn scan_for_new(&self) -> Result<Vec<String>> {
+    pub fn scan_for_new(&self) -> Result<Vec<Rc<str>>> {
         Ok(glob::glob("./**/*.md")?
-            .filter_map(result::Result::ok)
             .filter_map(|file| {
-                let path = match file.into_os_string().into_string() {
-                    Ok(v) => v,
-                    Err(_) => return None,
-                };
-
-                match self.documents.contains_key(&path) {
+                let file = file.ok()?;
+                let path = file.as_os_str().to_str()?;
+                match self.documents.contains_key(path) {
                     true => None,
-                    false => Some(path.clone()),
+                    false => Some(path.into()),
                 }
             })
             .collect())
@@ -106,8 +90,13 @@ impl Library {
     ///
     /// [`Document`]: Document
     /// [`Library`]: Library
-    pub fn add_document(&mut self, path: String) -> Result<()> {
-        let doc = Document::open(&path.as_str())?;
+    pub fn add_document(&mut self, path: impl AsRef<Path>) -> Result<()> {
+        let doc = Document::open(&path)?;
+        let path = match path.as_ref().as_os_str().to_str() {
+            Some(s) => Ok(s.into()),
+            None => Err(Error::InvalidString),
+        }?;
+
         self.documents.insert(path, doc);
         Ok(())
     }
@@ -121,7 +110,7 @@ impl Library {
     /// [`String`]: String
     #[inline]
     #[must_use]
-    pub fn documents(&self) -> &HashMap<String, Document> {
+    pub fn documents(&self) -> &HashMap<Rc<str>, Document> {
         &self.documents
     }
 
@@ -134,8 +123,9 @@ impl Library {
             documents: self
                 .documents
                 .into_iter()
-                .map(|(p, d)| -> Result<(String, Document)> {
-                    let doc = d.update(&p)?;
+                .map(|(p, d)| -> Result<(Rc<str>, Document)> {
+                    let s = &*p;
+                    let doc = d.update(&s)?;
                     Ok((p, doc))
                 })
                 .filter_map(result::Result::ok)
@@ -150,11 +140,11 @@ impl Library {
     /// [`Library`]: Library
     /// [`Vec`]: Vec
     /// [`Document`]: Document
-    pub fn changed_docs(&self) -> Vec<String> {
+    pub fn changed_docs(&self) -> Vec<&str> {
         self.documents
             .iter()
-            .filter_map(|(p, d)| match d.has_changed(&p).ok()? {
-                true => Some(p.clone()),
+            .filter_map(|(p, d)| match d.has_changed(&p.as_ref()).ok()? {
+                true => Some(p.as_ref()),
                 false => None,
             })
             .collect()
@@ -170,13 +160,20 @@ impl Library {
             .documents
             .keys()
             .map(|p| -> Result<(String, html::HtmlPage)> {
-                let md = MdContent::new(fs::read_to_string(p).map_err(|_| Error::FileReadError)?);
                 let href = p.replace(".md", ".html");
+                let md = MdContent::new(
+                    fs::read_to_string(&p.as_ref()).map_err(|_| Error::FileReadError)?,
+                );
+
+                let title = match md.title() {
+                    Some(cow_str) => cow_str.as_ref().to_owned(),
+                    None => "".to_owned(),
+                };
 
                 Ok((
                     href,
                     html::HtmlPage::new()
-                        .with_title(md.title().unwrap_or("".to_owned()))
+                        .with_title(title)
                         .with_link(
                             "../".to_owned().repeat(p.clone().path_items() - 1) + "index.html",
                             "HOME",
@@ -256,7 +253,7 @@ impl LibraryHtml {
 /// Holds infomation about a markdown document.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Document {
-    name: String,
+    name: Rc<str>,
     hash: u64,
     mod_time: time::OffsetDateTime,
 }
@@ -267,10 +264,13 @@ impl Document {
     /// favor of using methods of [`Library`].
     ///
     /// [`Library`]: Library
-    pub fn open(path: &impl AsRef<Path>) -> Result<Self> {
+    pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let content = MdContent::new(fs::read_to_string(path).map_err(|_| Error::FileReadError)?);
         Ok(Self {
-            name: content.title().unwrap_or("".to_owned()),
+            name: match content.title() {
+                Some(cow_str) => cow_str.as_ref().into(),
+                None => "".into(),
+            },
             hash: content.fnv1_hash(),
             mod_time: time::OffsetDateTime::now_local().unwrap_or(time::OffsetDateTime::now_utc()),
         })
@@ -282,14 +282,17 @@ impl Document {
     ///
     /// [`Document`]: Document
     /// [`MdContent`]: MdContent
-    pub fn update(self, path: &impl AsRef<Path>) -> Result<Self> {
+    pub fn update(self, path: impl AsRef<Path>) -> Result<Self> {
         let content = MdContent::new(fs::read_to_string(path).map_err(|_| Error::FileReadError)?);
         let new_hash = content.fnv1_hash();
 
         Ok(match self.hash == new_hash {
             true => self,
             false => Self {
-                name: content.title().unwrap_or("".to_owned()),
+                name: match content.title() {
+                    Some(cow_str) => cow_str.as_ref().into(),
+                    None => "".into(),
+                },
                 hash: new_hash,
                 mod_time: time::OffsetDateTime::now_local()
                     .unwrap_or(time::OffsetDateTime::now_utc()),
@@ -302,7 +305,7 @@ impl Document {
     /// which is stored within the [`Document`].
     ///
     /// [`Document`]: Document
-    pub fn has_changed(&self, path: &impl AsRef<Path>) -> Result<bool> {
+    pub fn has_changed(&self, path: impl AsRef<Path>) -> Result<bool> {
         let content = MdContent::new(fs::read_to_string(path).map_err(|_| Error::FileReadError)?);
         Ok(self.hash != content.fnv1_hash())
     }
@@ -318,8 +321,8 @@ impl Document {
     /// Gets a [`Cow<String>`] enclosing a reference to this [`Document`]'s name.
     #[inline]
     #[must_use]
-    pub fn name(&self) -> Cow<String> {
-        Cow::Borrowed(&self.name)
+    pub fn name(&self) -> &str {
+        &self.name
     }
 }
 

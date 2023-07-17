@@ -19,7 +19,7 @@ pub trait Href {
     fn parent_accessors(&self) -> usize;
 }
 
-impl Href for String {
+impl Href for str {
     fn path_items(&self) -> usize {
         match self.chars().next().unwrap_or_default() == '/' {
             true => self.matches('/').count(),
