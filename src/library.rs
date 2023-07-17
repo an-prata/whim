@@ -256,23 +256,27 @@ pub struct Document {
     name: Rc<str>,
     hash: u64,
     mod_time: time::OffsetDateTime,
+    create_time: time::OffsetDateTime,
 }
 
 impl Document {
     /// Opens the given path and reads it for info, this will set the
-    /// modification time to the current time and as such should be avoided in
-    /// favor of using methods of [`Library`].
+    /// modification and creation time to the current time and as such
+    /// should be avoided in favor of using methods of [`Library`].
     ///
     /// [`Library`]: Library
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let content = MdContent::new(fs::read_to_string(path).map_err(|_| Error::FileReadError)?);
+        let now = time::OffsetDateTime::now_local().unwrap_or(time::OffsetDateTime::now_utc());
+
         Ok(Self {
             name: match content.title() {
                 Some(cow_str) => cow_str.as_ref().into(),
                 None => "".into(),
             },
             hash: content.fnv1_hash(),
-            mod_time: time::OffsetDateTime::now_local().unwrap_or(time::OffsetDateTime::now_utc()),
+            mod_time: now,
+            create_time: now,
         })
     }
 
@@ -296,6 +300,7 @@ impl Document {
                 hash: new_hash,
                 mod_time: time::OffsetDateTime::now_local()
                     .unwrap_or(time::OffsetDateTime::now_utc()),
+                ..self
             },
         })
     }
@@ -315,6 +320,13 @@ impl Document {
     #[inline]
     #[must_use]
     pub fn mod_time(&self) -> time::OffsetDateTime {
+        self.mod_time
+    }
+
+    /// Gets the time of creation as made by the struct's construction.
+    #[inline]
+    #[must_use]
+    pub fn create_time(&self) -> time::OffsetDateTime {
         self.mod_time
     }
 
