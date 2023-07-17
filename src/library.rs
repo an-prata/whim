@@ -327,7 +327,7 @@ impl Document {
     #[inline]
     #[must_use]
     pub fn create_time(&self) -> time::OffsetDateTime {
-        self.mod_time
+        self.create_time
     }
 
     /// Gets a [`&str`] enclosing a reference to this [`Document`]'s name.
