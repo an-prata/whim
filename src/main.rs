@@ -27,9 +27,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     let cmd_build = Command(BUILD_COMMAND.into());
 
     let args = match ArgsParser::new(env::args())
-        .command(cmd_new.clone())
-        .command(cmd_update.clone())
-        .command(cmd_scan.clone())
+        .command(cmd_new)
+        .command(cmd_update)
+        .command(cmd_scan)
         .command(cmd_add.clone())
         .command(cmd_build.clone())
         .parse()
