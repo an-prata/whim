@@ -43,7 +43,7 @@ impl Library {
     }
 
     /// Scans the current directory for markdown files and returns a [`Vec`] of
-    /// documents not yet included in the [`Library`].
+    /// paths to documents not yet included in the [`Library`].
     ///
     /// [`Vec`]: Vec
     /// [`Library`]: Library
@@ -102,12 +102,12 @@ impl Library {
     }
 
     /// Gets the backing hashmap of the [`Library`] which has value of type
-    /// [`Document`] that are keyed with [`String`]s of the [`Document`]'s file
+    /// [`Document`] that are keyed with [`Rc<str>`]s of the [`Document`]'s file
     /// path.
     ///
     /// [`Library`]: Library
     /// [`Document`]: Document
-    /// [`String`]: String
+    /// [`Rc<str>`]: Rc<str>
     #[inline]
     #[must_use]
     pub fn documents(&self) -> &HashMap<Rc<str>, Document> {
@@ -150,7 +150,7 @@ impl Library {
             .collect()
     }
 
-    /// Creates a returns a [`LibraryHtml`] from documents managed by this
+    /// Creates and returns a [`LibraryHtml`] from documents managed by this
     /// [`Library`].
     ///
     /// [`Library`]: Library
@@ -330,7 +330,10 @@ impl Document {
         self.mod_time
     }
 
-    /// Gets a [`Cow<String>`] enclosing a reference to this [`Document`]'s name.
+    /// Gets a [`&str`] enclosing a reference to this [`Document`]'s name.
+    ///
+    /// [`Document`]: Document
+    /// [`&str`]: str
     #[inline]
     #[must_use]
     pub fn name(&self) -> &str {
