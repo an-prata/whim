@@ -57,16 +57,30 @@ fn main() -> Result<(), Box<dyn Error>> {
         UPDATE_COMMAND => return commands::update(),
         SCAN_COMMAND => return commands::scan(),
         ADD_COMMAND => {
-            return commands::add(match &args.command_parameters(cmd_add).unwrap()[0] {
+            let params = args.command_parameters(cmd_add).unwrap();
+
+            if params.len() < 1 {
+                println!("add requires a parameter, e.g. 'whim add doc.md'");
+                return Ok(());
+            }
+
+            return commands::add(match &params[0] {
                 args::Value::String(s) => s.clone(),
                 _ => unreachable!(),
-            })
+            });
         }
         BUILD_COMMAND => {
-            return commands::build(match &args.command_parameters(cmd_build).unwrap()[0] {
+            let params = args.command_parameters(cmd_build).unwrap();
+
+            if params.len() < 1 {
+                println!("build requires a parameter, e.g. 'whim add /path/to/dir/'");
+                return Ok(());
+            }
+
+            return commands::build(match &params[0] {
                 args::Value::String(s) => s.clone(),
                 _ => unreachable!(),
-            })
+            });
         }
         _ => (),
     };

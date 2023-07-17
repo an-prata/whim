@@ -6,10 +6,9 @@ use crate::{
     library::Library,
     prompt::{self, PromptItem},
 };
-use std::{error, path::Path, process};
+use std::{error, process};
 
 const LIBRARY_FILE: &str = ".whim.ron";
-const HTML_PATH: &str = "./whim-build";
 
 pub fn new() -> Result<(), Box<dyn error::Error>> {
     let lib = Library::scan()?;
@@ -132,7 +131,10 @@ pub fn add(path: String) -> Result<(), Box<dyn error::Error>> {
 
     match lib.add_document(path.clone()) {
         Ok(_) => (),
-        Err(_) => println!("could not add '{}'", path),
+        Err(_) => {
+            println!("could not add '{}'", path);
+            return Ok(());
+        }
     }
 
     match lib.save(LIBRARY_FILE) {
