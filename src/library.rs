@@ -9,6 +9,7 @@ use glob;
 use html::{Html, HtmlContainer};
 use ron;
 use serde::{Deserialize, Serialize};
+use std::ops::Add;
 use std::{collections::HashMap, error, ffi, fmt, fs, path::Path, rc::Rc, result};
 use time;
 
@@ -158,8 +159,8 @@ impl Library {
     pub fn gen_html(&self) -> Result<LibraryHtml> {
         let mut pages: Vec<(String, html::HtmlPage)> = self
             .documents
-            .keys()
-            .map(|p| -> Result<(String, html::HtmlPage)> {
+            .iter()
+            .map(|(p, doc)| -> Result<(String, html::HtmlPage)> {
                 let href = p.replace(".md", ".html");
                 let md = MdContent::new(
                     fs::read_to_string(&p.as_ref()).map_err(|_| Error::FileReadError)?,
@@ -178,7 +179,31 @@ impl Library {
                             "../".to_owned().repeat(p.clone().path_items() - 1) + "index.html",
                             "HOME",
                         )
-                        .with_html(md),
+                        .with_html(md)
+                        .with_paragraph(format!(
+                            "Created: {} {} {}, {}",
+                            doc.create_time.day(),
+                            doc.create_time.month(),
+                            doc.create_time.year(),
+                            match doc.create_time.hour() {
+                                hour @ 1..=12 => format!("{}:{} AM", hour, doc.create_time.minute()),
+                                hour @ 12..=24 => format!("{}:{} PM", hour - 12, doc.create_time.minute()),
+                                0 => format!("12:{} PM", doc.create_time.minute()),
+                                _ => unreachable!(),
+                            },
+                        ))
+                        .with_paragraph(format!(
+                            "Last Modified: {} {} {}, {}",
+                            doc.mod_time.day(),
+                            doc.mod_time.month(),
+                            doc.mod_time.year(),
+                            match doc.create_time.hour() {
+                                hour @ 1..=12 => format!("{}:{} AM", hour, doc.mod_time.minute()),
+                                hour @ 12..=24 => format!("{}:{} PM", hour - 12, doc.mod_time.minute()),
+                                0 => format!("12:{} PM", doc.mod_time.minute()),
+                                _ => unreachable!(),
+                            },
+                        )),
                 ))
             })
             .filter_map(result::Result::ok)
