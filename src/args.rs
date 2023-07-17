@@ -183,6 +183,34 @@ impl ParsedArgs {
             })
             .collect()
     }
+
+    /// Returns a [`Vec`] of all [`Value`] items directly proceding the first
+    /// instance of the given [`Command`].
+    ///
+    /// [`Vec`]: Vec
+    /// [`Value`]: Value
+    /// [`Command`]: Command
+    pub fn command_parameters(&self, cmd: Command) -> Option<Vec<Value>> {
+        let start_pos = self.items.iter().position(|item| match item {
+            ArgsItem::Command(c) => *c == cmd,
+            _ => false,
+        })? + 1;
+
+        let end_pos = match self.items[start_pos..].iter().position(|item| match item {
+            ArgsItem::Value(_) => false,
+            _ => true,
+        }) {
+            Some(pos) => pos,
+            None => self.items.len(),
+        };
+
+        Some(
+            self.items[start_pos..end_pos]
+                .iter()
+                .map(|item| item.clone().unwrap_value())
+                .collect(),
+        )
+    }
 }
 
 /// A single item of the given command line arguments.
@@ -203,6 +231,29 @@ pub enum ArgsItem {
     /// Any argument that either follows a [`Flag`] that expects a value, or
     /// does not match any given [`String`] for a [`Command`].
     Value(Value),
+}
+
+impl ArgsItem {
+    pub fn unwrap_command(self) -> Command {
+        match self {
+            Self::Command(cmd) => cmd,
+            _ => panic!("called `ArgsItem::unwrap_command()` on non `Command` value"),
+        }
+    }
+
+    pub fn unwrap_flag(self) -> Flag {
+        match self {
+            Self::Flag(flag) => flag,
+            _ => panic!("called `ArgsItem::unwrap_flag()` on non `Flag` value"),
+        }
+    }
+
+    pub fn unwrap_value(self) -> Value {
+        match self {
+            Self::Value(val) => val,
+            _ => panic!("called `ArgsItem::unwrap_value()` on non `Value` value"),
+        }
+    }
 }
 
 /// A subcommand of a program as given in command line arguments.
