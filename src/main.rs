@@ -9,7 +9,6 @@ mod href;
 mod library;
 mod md_content;
 mod prompt;
-
 use args::{ArgsParser, Command};
 use std::{env, error::Error};
 
@@ -46,6 +45,9 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         if cmds.len() > 1 {
             println!("Only singlular commands permitted.");
+            return Ok(());
+        } else if cmds.len() < 1 {
+            print_help();
             return Ok(());
         }
 

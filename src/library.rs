@@ -6,10 +6,9 @@ use crate::href::Href;
 use crate::{fnv1_hash::Hashable, md_content::MdContent};
 use build_html as html;
 use glob;
-use html::{Html, HtmlContainer};
+use html::{Container, Html, HtmlContainer};
 use ron;
 use serde::{Deserialize, Serialize};
-use std::ops::Add;
 use std::{collections::HashMap, error, ffi, fmt, fs, path::Path, rc::Rc, result};
 use time;
 
@@ -175,20 +174,27 @@ impl Library {
                     href,
                     html::HtmlPage::new()
                         .with_title(title)
+                        .with_stylesheet("styles.css")
                         .with_link(
                             "../".to_owned().repeat(p.clone().path_items() - 1) + "index.html",
                             "HOME",
                         )
-                        .with_html(md)
+                        .with_container(
+                            Container::new(html::ContainerType::Div)
+                                .with_attributes(vec![("class", "content")])
+                                .with_html(md),
+                        )
                         .with_paragraph(format!(
                             "Created: {} {} {}, {}",
                             doc.create_time.day(),
                             doc.create_time.month(),
                             doc.create_time.year(),
                             match doc.create_time.hour() {
-                                hour @ 1..=12 => format!("{}:{} AM", hour, doc.create_time.minute()),
-                                hour @ 12..=24 => format!("{}:{} PM", hour - 12, doc.create_time.minute()),
-                                0 => format!("12:{} PM", doc.create_time.minute()),
+                                hour @ 1..=12 =>
+                                    format!("{}:{:0>2} AM", hour, doc.create_time.minute()),
+                                hour @ 13..=24 =>
+                                    format!("{}:{:0>2} PM", hour - 12, doc.create_time.minute()),
+                                0 => format!("12:{:0>2} PM", doc.create_time.minute()),
                                 _ => unreachable!(),
                             },
                         ))
@@ -198,9 +204,11 @@ impl Library {
                             doc.mod_time.month(),
                             doc.mod_time.year(),
                             match doc.create_time.hour() {
-                                hour @ 1..=12 => format!("{}:{} AM", hour, doc.mod_time.minute()),
-                                hour @ 12..=24 => format!("{}:{} PM", hour - 12, doc.mod_time.minute()),
-                                0 => format!("12:{} PM", doc.mod_time.minute()),
+                                hour @ 1..=12 =>
+                                    format!("{}:{:0>2} AM", hour, doc.mod_time.minute()),
+                                hour @ 13..=24 =>
+                                    format!("{}:{:0>2} PM", hour - 12, doc.mod_time.minute()),
+                                0 => format!("12:{:0>2} PM", doc.mod_time.minute()),
                                 _ => unreachable!(),
                             },
                         )),
