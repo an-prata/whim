@@ -1,0 +1,52 @@
+:root {
+  --background: #17171C;
+  --background-light: #1f1f29;
+  --highlight: #2f2f2f;
+  --foreground: #f2f2e9;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: JetBrains Mono;
+  font-size: 10px;
+}
+
+h1 {
+  font-size: 42px;
+}
+
+h2 {
+  font-size: 36px;
+}
+
+h3 {
+  font-size: 30px;
+}
+
+h4 {
+  font-size: 24px;
+}
+
+a {
+  font-size: 14px;
+  color: #cca37a;
+}
+
+pre {
+  background: var(--background);
+  border: 1px solid var(--highlight);
+  padding: 40px;
+  margin: 40px auto;
+  align-content: center;
+}
+
+.content {
+  background: var(--background-light);
+  border: 1px solid var(--highlight);
+  padding: 40px;
+  margin: 40px auto;
+  max-width: 720px;
+  align-content: center;
+  font-size: 14px;
+}
